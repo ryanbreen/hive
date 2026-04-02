@@ -10,9 +10,13 @@ struct DirectoryField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            TextField("~/", text: $directory)
+            TextField(text: $directory, prompt: Text("~/")) {
+                EmptyView()
+            }
                 .textFieldStyle(.roundedBorder)
                 .font(.system(.body, design: .monospaced))
+                .labelsHidden()
+                .frame(maxWidth: .infinity)
                 .focused($isFocused)
                 .onChange(of: directory) { _, newValue in
                     updateSuggestions(for: newValue)
