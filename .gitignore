@@ -1,0 +1,24 @@
+.DS_Store
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Xcode
+DerivedData/
+*.xcworkspace
+*.xcodeproj/project.xcworkspace/
+*.xcuserdatad/
+*.xcuserstate
+
+# Editors and tooling
+.idea/
+.vscode/
+.sourcekit-lsp/
+compile_commands.json
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
