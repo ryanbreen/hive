@@ -12,6 +12,11 @@ let package = Package(
         .executableTarget(
             name: "Hive",
             path: "Sources/Hive"
+        ),
+        .testTarget(
+            name: "HiveTests",
+            dependencies: ["Hive"],
+            path: "Tests/HiveTests"
         )
     ]
 )

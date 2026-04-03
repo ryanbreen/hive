@@ -24,16 +24,32 @@ actor GhosttyService {
         text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
     }
 
-    private func paneConfig(dir: String, pane: PaneConfig?) -> String {
-        if let pane = pane, let cmd = pane.launchCommand {
-            let escapedCmd = escape(cmd)
-            return "(new surface configuration from {initial working directory:\"\(dir)\", initial input:\"\(escapedCmd)\\n\"})"
+    private func shellEscape(_ text: String) -> String {
+        "'" + text.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    private func expandedDirectory(_ path: String) -> String {
+        (path as NSString).expandingTildeInPath
+    }
+
+    func initialInput(dir: String, pane: PaneConfig?) -> String {
+        let expandedDir = expandedDirectory(dir)
+        var lines = ["cd -- \(shellEscape(expandedDir))"]
+        if let cmd = pane?.launchCommand, !cmd.isEmpty {
+            lines.append(cmd)
         }
-        return "(new surface configuration from {initial working directory:\"\(dir)\"})"
+        return lines.joined(separator: "\n") + "\n"
+    }
+
+    private func paneConfig(dir: String, pane: PaneConfig?) -> String {
+        let expandedDir = expandedDirectory(dir)
+        let input = escape(initialInput(dir: dir, pane: pane))
+        let escapedDir = escape(expandedDir)
+        return "(new surface configuration from {initial working directory:\"\(escapedDir)\", initial input:\"\(input)\"})"
     }
 
     func launchPod(pod: Pod) async throws {
-        let dir = escape(pod.directory)
+        let dir = pod.directory
         let leftPanes = pod.leftPanes
         let middle = pod.middlePane
         let rightPanes = pod.rightPanes
