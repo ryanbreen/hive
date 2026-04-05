@@ -4,10 +4,16 @@ import SwiftUI
 struct HiveApp: App {
     @State private var appState = AppState()
 
+    init() {
+        GhosttyService.ensureHookScript()
+    }
+
     var body: some Scene {
-        MenuBarExtra("Hive", systemImage: "hexagon.fill") {
+        MenuBarExtra {
             MenuBarView()
                 .environment(appState)
+        } label: {
+            BackupStatusMenuBarLabel(backupMode: appState.backupMode)
         }
         .menuBarExtraStyle(.window)
     }

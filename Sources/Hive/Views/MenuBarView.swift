@@ -206,12 +206,21 @@ struct MenuBarView: View {
 
     private var header: some View {
         HStack {
-            Image(systemName: "hexagon.fill")
-                .foregroundStyle(.indigo)
+            BackupStatusIcon(backupMode: state.backupMode, size: 18)
             Text("Hive")
                 .font(.system(.headline, weight: .bold))
 
             Spacer()
+
+            if !state.backupMode.isEnabled {
+                Button("Enable Backups") {
+                    Task { await state.enableAutomaticBackups() }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .tint(.yellow)
+                .help("Create a new authoritative backup checkpoint")
+            }
 
             Button {
                 state.isCreatingPod = true
@@ -246,9 +255,14 @@ struct MenuBarView: View {
 
             Spacer()
 
-            Text("\(state.pods.count) pods")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                Text(state.backupMode.isEnabled ? "Backups on" : "Backups paused")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("\(state.pods.count) pods")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
