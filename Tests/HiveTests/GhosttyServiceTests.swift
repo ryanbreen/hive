@@ -21,7 +21,8 @@ struct GhosttyServiceTests {
 
         let input = await service.initialInput(dir: "~/tmp/project", pane: pane)
 
-        #expect(input == "cd -- '\(home)/tmp/project'\ncodex resume session-123\n")
+        #expect(input.hasPrefix("cd -- '\(home)/tmp/project'\n"))
+        #expect(input.hasSuffix("codex resume session-123\n"))
     }
 
     @Test

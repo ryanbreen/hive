@@ -156,41 +156,63 @@ struct MenuBarView: View {
 
     private func workspaceSectionHeader(group: (workspace: Int, pods: [Pod])) -> some View {
         let isCollapsed = collapsedWorkspaces.contains(group.workspace)
-        return Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                if isCollapsed {
-                    collapsedWorkspaces.remove(group.workspace)
-                } else {
-                    collapsedWorkspaces.insert(group.workspace)
+        return HStack(spacing: 8) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    if isCollapsed {
+                        collapsedWorkspaces.remove(group.workspace)
+                    } else {
+                        collapsedWorkspaces.insert(group.workspace)
+                    }
+                }
+            } label: {
+                HStack {
+                    Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 10)
+                    Image(systemName: "square.grid.2x2")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Workspace \(group.workspace)")
+                        .font(.system(.caption, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                    Spacer()
+                    Text("\(group.pods.count)")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.quaternary, in: Capsule())
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                Task { await rebuild(workspaces: [group.workspace]) }
+            } label: {
+                HStack(spacing: 4) {
+                    if state.isRebuilding {
+                        ProgressView()
+                            .controlSize(.mini)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.caption)
+                    }
+                    Text("Relaunch")
+                        .font(.caption)
                 }
             }
-        } label: {
-            HStack {
-                Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.tertiary)
-                    .frame(width: 10)
-                Image(systemName: "square.grid.2x2")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("Workspace \(group.workspace)")
-                    .font(.system(.caption, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                Spacer()
-                Text("\(group.pods.count)")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.quaternary, in: Capsule())
-            }
-            .padding(.horizontal, 4)
-            .padding(.vertical, 6)
-            .background(.background)
-            .contentShape(Rectangle())
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .disabled(state.isRebuilding)
+            .help("Relaunch workspace \(group.workspace)")
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 6)
+        .background(.background)
     }
 
     private func launchPod(_ pod: Pod) async {
@@ -269,15 +291,32 @@ struct MenuBarView: View {
     }
 
     private func rebuildAll() async {
+        await rebuild(workspaces: nil)
+    }
+
+    private func rebuild(workspaces: [Int]?) async {
         state.isRebuilding = true
         defer { state.isRebuilding = false }
 
         do {
-            for i in state.pods.indices {
-                await state.refreshSessions(for: state.pods[i].id)
+            let podIDs = state.pods
+                .filter { pod in
+                    guard let workspaces else { return true }
+                    return workspaces.contains(pod.workspace)
+                }
+                .map(\.id)
+
+            for podID in podIDs {
+                await state.refreshSessions(for: podID)
             }
+
+            let podsToLaunch = state.pods.filter { pod in
+                guard let workspaces else { return true }
+                return workspaces.contains(pod.workspace)
+            }
+
             let launcher = PodLauncher()
-            try await launcher.rebuildAll(pods: state.pods)
+            try await launcher.rebuildAll(pods: podsToLaunch)
         } catch {
             state.error = "Rebuild failed: \(error.localizedDescription)"
         }

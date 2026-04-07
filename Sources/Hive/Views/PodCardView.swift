@@ -4,7 +4,6 @@ struct PodCardView: View {
     let pod: Pod
     @Environment(AppState.self) var state
     @State private var isHovered = false
-    @State private var isLaunching = false
     @State private var showDeleteConfirm = false
 
     var body: some View {
@@ -42,25 +41,6 @@ struct PodCardView: View {
                 .frame(height: max(32, CGFloat(pod.leftPanes.count) * 12))
 
             HStack(spacing: 8) {
-                Button {
-                    Task { await launch() }
-                } label: {
-                    HStack(spacing: 4) {
-                        if isLaunching {
-                            ProgressView()
-                                .controlSize(.mini)
-                        } else {
-                            Image(systemName: "play.fill")
-                                .font(.caption2)
-                        }
-                        Text("Launch")
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .tint(.indigo)
-                .disabled(isLaunching)
-
                 Button {
                     Task { await state.refreshSessions(for: pod.id) }
                 } label: {
@@ -131,20 +111,6 @@ struct PodCardView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-        }
-    }
-
-    private func launch() async {
-        isLaunching = true
-        defer { isLaunching = false }
-
-        do {
-            await state.refreshSessions(for: pod.id)
-            guard let updatedPod = state.pods.first(where: { $0.id == pod.id }) else { return }
-            let launcher = PodLauncher()
-            try await launcher.launch(pod: updatedPod)
-        } catch {
-            state.error = error.localizedDescription
         }
     }
 }

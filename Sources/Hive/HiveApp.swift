@@ -5,7 +5,6 @@ struct HiveApp: App {
     @State private var appState = AppState()
 
     init() {
-        GhosttyService.ensureHookScript()
     }
 
     var body: some Scene {
