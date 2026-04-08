@@ -124,6 +124,29 @@ actor GhosttyService {
         }
     }
 
+    /// Restore a complete session from a JSON file via the `restore session` AppleScript command.
+    /// Returns a dictionary mapping session window IDs to Ghostty stable window IDs.
+    func restoreSession(filePath: String) async throws -> [String: String] {
+        let escapedPath = escape(filePath)
+        let script = """
+        tell application "Ghostty"
+          restore session "\(escapedPath)"
+        end tell
+        """
+        let raw = try await runAppleScript(script)
+
+        // Parse AppleScript record output
+        var result: [String: String] = [:]
+        let pairs = raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        for pair in pairs {
+            let parts = pair.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+            if parts.count == 2 {
+                result[parts[0]] = parts[1]
+            }
+        }
+        return result
+    }
+
     func listWindows() async throws -> String {
         let script = """
         tell application "Ghostty"

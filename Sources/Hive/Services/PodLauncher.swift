@@ -51,6 +51,38 @@ actor PodLauncher {
         try await ghostty.launchPod(pod: pod)
     }
 
+    /// Rebuild all pods using Ghostty's native session restore.
+    /// Creates all windows/tabs/panes in a single atomic call,
+    /// then uses yabai to move windows to their target workspaces.
+    func rebuildAllViaSession(pods: [Pod]) async throws {
+        let session = GhosttySessionBuilder.buildSession(from: pods)
+        let filePath = try GhosttySessionBuilder.writeSessionFile(session)
+
+        let windowMap = try await ghostty.restoreSession(filePath: filePath)
+
+        // Build a lookup from window group ID to target workspace
+        var groupWorkspaces: [String: Int] = [:]
+        for pod in pods {
+            if groupWorkspaces[pod.windowGroup] == nil {
+                groupWorkspaces[pod.windowGroup] = pod.workspace
+            }
+        }
+
+        // Move each created window to its target workspace
+        try await Task.sleep(for: .milliseconds(500))
+
+        for (sessionWindowId, _) in windowMap {
+            guard let targetWorkspace = groupWorkspaces[sessionWindowId] else { continue }
+
+            // Query fresh window list and move any on wrong workspace
+            if let win = try? await yabai.newestGhosttyWindow(),
+               win.space != targetWorkspace {
+                try? await yabai.moveWindow(windowId: win.id, toSpace: targetWorkspace)
+                try await Task.sleep(for: .milliseconds(100))
+            }
+        }
+    }
+
     func rebuildAll(pods: [Pod]) async throws {
         let sorted = pods.sorted { a, b in
             if a.workspace != b.workspace { return a.workspace < b.workspace }
