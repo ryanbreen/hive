@@ -68,6 +68,7 @@ final class AppState {
 
     func load() async {
         guard !hasLoaded else { return }
+        error = nil
         do {
             pods = try await stateService.load()
             hasLoaded = true
@@ -78,6 +79,7 @@ final class AppState {
     }
 
     func save() async {
+        error = nil
         do {
             try await persistUserState()
         } catch {
@@ -87,6 +89,7 @@ final class AppState {
 
     func enableAutomaticBackups() async {
         guard !backupMode.isEnabled else { return }
+        error = nil
         do {
             try await stateService.save(pods)
             backupMode = .enabled
@@ -104,6 +107,7 @@ final class AppState {
     }
 
     func refreshSessions(for podId: String) async {
+        error = nil
         guard let index = pods.firstIndex(where: { $0.id == podId }) else { return }
         let pod = pods[index]
 

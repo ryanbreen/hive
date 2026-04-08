@@ -14,8 +14,15 @@ struct PodEditorView: View {
     @State private var leftProcessType: ProcessType = .claude
     @State private var middleCommand = ""
     @State private var middleType: ProcessType = .shell
+    @State private var isSaving = false
 
     var isEditing: Bool { pod != nil }
+    private var availableStandalonePods: [Pod] {
+        state.pods.filter { $0.mode == .standalone && $0.workspace == workspace }
+    }
+    private var canSave: Bool {
+        !directory.isEmpty && (mode == .standalone || !windowGroup.isEmpty)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -51,16 +58,13 @@ struct PodEditorView: View {
                     .pickerStyle(.segmented)
 
                     if mode == .tab {
-                        let standalones = state.pods.filter {
-                            $0.mode == .standalone && $0.workspace == workspace
-                        }
-                        if standalones.isEmpty {
+                        if availableStandalonePods.isEmpty {
                             Text("No standalone pods on workspace \(workspace)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         } else {
                             Picker("Parent Window", selection: $windowGroup) {
-                                ForEach(standalones) { s in
+                                ForEach(availableStandalonePods) { s in
                                     Text(s.displayName).tag(s.id)
                                 }
                             }
@@ -124,13 +128,20 @@ struct PodEditorView: View {
 
                 Spacer()
 
-                Button(isEditing ? "Save" : "Create") {
-                    save()
-                    onDismiss()
+                Button {
+                    Task { await saveAndDismiss() }
+                } label: {
+                    HStack(spacing: 6) {
+                        if isSaving {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                        Text(isEditing ? "Save" : "Create")
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.indigo)
-                .disabled(directory.isEmpty)
+                .disabled(!canSave || isSaving)
             }
             .padding()
         }
@@ -148,7 +159,10 @@ struct PodEditorView: View {
                     middleCommand = mid.customCommand ?? ""
                 }
             }
+            syncWindowGroupSelection()
         }
+        .onChange(of: workspace) { _, _ in syncWindowGroupSelection() }
+        .onChange(of: mode) { _, _ in syncWindowGroupSelection() }
     }
 
     private func buildPanes() -> [PaneConfig] {
@@ -184,7 +198,23 @@ struct PodEditorView: View {
         )
     }
 
-    private func save() {
+    private func syncWindowGroupSelection() {
+        guard mode == .tab else { return }
+        if availableStandalonePods.contains(where: { $0.id == windowGroup }) {
+            return
+        }
+        windowGroup = availableStandalonePods.first?.id ?? ""
+    }
+
+    private func saveAndDismiss() async {
+        guard canSave else {
+            state.error = mode == .tab ? "Select a parent window for this tab pod." : "Directory is required."
+            return
+        }
+
+        isSaving = true
+        defer { isSaving = false }
+
         let panes = buildPanes()
 
         if var existing = pod, let index = state.pods.firstIndex(where: { $0.id == existing.id }) {
@@ -208,7 +238,10 @@ struct PodEditorView: View {
             state.pods.append(newPod)
         }
 
-        Task { await state.save() }
+        await state.save()
+        if state.error == nil {
+            onDismiss()
+        }
     }
 
 }

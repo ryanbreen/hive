@@ -48,6 +48,25 @@ struct MenuBarView: View {
         .task {
             await state.load()
         }
+        .alert(
+            "Hive Error",
+            isPresented: Binding(
+                get: { state.error != nil },
+                set: { presented in
+                    if !presented {
+                        state.error = nil
+                    }
+                }
+            ),
+            actions: {
+                Button("OK", role: .cancel) {
+                    state.error = nil
+                }
+            },
+            message: {
+                Text(state.error ?? "Unknown error")
+            }
+        )
     }
 
     private var listContent: some View {

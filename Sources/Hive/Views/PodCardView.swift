@@ -4,6 +4,7 @@ struct PodCardView: View {
     let pod: Pod
     @Environment(AppState.self) var state
     @State private var isHovered = false
+    @State private var isRefreshing = false
     @State private var showDeleteConfirm = false
 
     var body: some View {
@@ -42,13 +43,19 @@ struct PodCardView: View {
 
             HStack(spacing: 8) {
                 Button {
-                    Task { await state.refreshSessions(for: pod.id) }
+                    Task { await refreshSessions() }
                 } label: {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.caption)
+                    if isRefreshing {
+                        ProgressView()
+                            .controlSize(.mini)
+                    } else {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.caption)
+                    }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .disabled(isRefreshing)
                 .help("Refresh sessions")
 
                 Spacer()
@@ -112,5 +119,11 @@ struct PodCardView: View {
                 }
             }
         }
+    }
+
+    private func refreshSessions() async {
+        isRefreshing = true
+        defer { isRefreshing = false }
+        await state.refreshSessions(for: pod.id)
     }
 }
