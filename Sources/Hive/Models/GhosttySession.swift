@@ -188,17 +188,34 @@ enum GhosttySessionBuilder {
         ))
     }
 
-    /// Write the session document to a file and return the path.
+    /// Write the session document to a timestamped file under
+    /// ~/.claude-pods/sessions/ and update the ghostty-session.json symlink
+    /// to point to it. Returns the path of the symlink.
     static func writeSessionFile(_ document: GhosttySessionDocument) throws -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(document)
 
-        let dir = FileManager.default.homeDirectoryForCurrentUser
+        let base = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude-pods")
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let path = dir.appendingPathComponent("ghostty-session.json")
-        try data.write(to: path)
-        return path.path
+        let sessionsDir = base.appendingPathComponent("sessions")
+        try FileManager.default.createDirectory(at: sessionsDir, withIntermediateDirectories: true)
+
+        // Write timestamped file
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+            .replacingOccurrences(of: ":", with: "-")
+        let filename = "ghostty-session-\(timestamp).json"
+        let timestampedPath = sessionsDir.appendingPathComponent(filename)
+        try data.write(to: timestampedPath)
+
+        // Update symlink: remove old one and create new pointing to timestamped file
+        let symlinkPath = base.appendingPathComponent("ghostty-session.json")
+        try? FileManager.default.removeItem(at: symlinkPath)
+        try FileManager.default.createSymbolicLink(
+            at: symlinkPath,
+            withDestinationURL: timestampedPath
+        )
+
+        return symlinkPath.path
     }
 }

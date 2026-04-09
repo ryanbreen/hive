@@ -58,25 +58,44 @@ actor PodLauncher {
         let session = GhosttySessionBuilder.buildSession(from: pods)
         let filePath = try GhosttySessionBuilder.writeSessionFile(session)
 
-        let windowMap = try await ghostty.restoreSession(filePath: filePath)
+        // Snapshot existing Ghostty window IDs before restore so we can
+        // identify newly-created windows afterward.
+        let existingIds = Set((try? await yabai.ghosttyWindows())?.map(\.id) ?? [])
 
-        // Build a lookup from window group ID to target workspace
+        _ = try await ghostty.restoreSession(filePath: filePath)
+
+        // Build ordered list of target workspaces matching session window order.
+        // GhosttySessionBuilder sorts pods by workspace then createdAt, so the
+        // session windows appear in the same order.
+        var windowOrder: [String] = []
         var groupWorkspaces: [String: Int] = [:]
-        for pod in pods {
+        let sorted = pods.sorted { a, b in
+            if a.workspace != b.workspace { return a.workspace < b.workspace }
+            return a.createdAt < b.createdAt
+        }
+        for pod in sorted {
             if groupWorkspaces[pod.windowGroup] == nil {
+                windowOrder.append(pod.windowGroup)
                 groupWorkspaces[pod.windowGroup] = pod.workspace
             }
         }
 
-        // Move each created window to its target workspace
-        try await Task.sleep(for: .milliseconds(500))
+        // Wait for Ghostty to finish creating windows.
+        try await Task.sleep(for: .milliseconds(600))
 
-        for (sessionWindowId, _) in windowMap {
-            guard let targetWorkspace = groupWorkspaces[sessionWindowId] else { continue }
+        // New windows, sorted ascending by yabai ID (creation order).
+        let allWindows = (try? await yabai.ghosttyWindows()) ?? []
+        let newWindows = allWindows
+            .filter { !existingIds.contains($0.id) }
+            .sorted { $0.id < $1.id }
 
-            // Query fresh window list and move any on wrong workspace
-            if let win = try? await yabai.newestGhosttyWindow(),
-               win.space != targetWorkspace {
+        // Move each new window to its target workspace in order.
+        for (index, group) in windowOrder.enumerated() {
+            guard index < newWindows.count else { break }
+            guard let targetWorkspace = groupWorkspaces[group] else { continue }
+
+            let win = newWindows[index]
+            if win.space != targetWorkspace {
                 try? await yabai.moveWindow(windowId: win.id, toSpace: targetWorkspace)
                 try await Task.sleep(for: .milliseconds(100))
             }

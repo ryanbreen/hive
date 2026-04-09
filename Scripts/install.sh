@@ -60,38 +60,10 @@ fi
 
 launchctl bootout "gui/${TARGET_UID}/${LAUNCH_AGENT_LABEL}" >/dev/null 2>&1 || true
 stop_running_hives
+rm -f "${LAUNCH_AGENT_PATH}"
 rm -rf "${APP_PATH}"
 ditto "${STAGED_APP_PATH}" "${APP_PATH}"
 
-mkdir -p "${LAUNCH_AGENT_DIR}"
-cat >"${LAUNCH_AGENT_PATH}" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>${LAUNCH_AGENT_LABEL}</string>
-  <key>LimitLoadToSessionType</key>
-  <array>
-    <string>Aqua</string>
-  </array>
-  <key>ProgramArguments</key>
-  <array>
-    <string>/usr/bin/open</string>
-    <string>${APP_PATH}</string>
-  </array>
-  <key>RunAtLoad</key>
-  <true/>
-</dict>
-</plist>
-EOF
-
-plutil -lint "${LAUNCH_AGENT_PATH}" >/dev/null
-if [[ -n "${SUDO_USER:-}" ]]; then
-  chown "${TARGET_USER}" "${LAUNCH_AGENT_PATH}"
-fi
-launchctl bootstrap "gui/${TARGET_UID}" "${LAUNCH_AGENT_PATH}"
-launchctl kickstart -k "gui/${TARGET_UID}/${LAUNCH_AGENT_LABEL}" >/dev/null 2>&1 || true
-
 echo "Installed ${APP_PATH}"
-echo "LaunchAgent loaded: ${LAUNCH_AGENT_PATH}"
+echo "Startup disabled: removed ${LAUNCH_AGENT_PATH} if it existed"
+echo "Launch manually with: open ${APP_PATH}"

@@ -28,7 +28,7 @@ The app installs as a menu bar icon (hexagon). It has no dock icon or main windo
 
 ## Install
 
-Install a bundled copy to `/Applications/Utilities/Hive.app` and register a per-user LaunchAgent so Hive starts automatically when you log in:
+Install a bundled copy to `/Applications/Utilities/Hive.app`:
 
 ```bash
 ./Scripts/install.sh
@@ -38,14 +38,13 @@ What the installer does:
 - builds the release binary with SwiftPM
 - creates a minimal macOS app bundle with `LSUIElement` enabled
 - copies the bundle to `/Applications/Utilities/Hive.app`
-- writes `~/Library/LaunchAgents/com.hive.Hive.plist`
-- loads the LaunchAgent immediately so the menu bar app starts now and on future logins
+- removes any existing `~/Library/LaunchAgents/com.hive.Hive.plist` so Hive does not start automatically at login
 
 Notes:
-- Writing to `/Applications/Utilities` may require an admin-capable shell. If needed, run the installer with `sudo`; the script still installs the LaunchAgent for the invoking macOS user, not for `root`. You can also override the destination with `INSTALL_DIR=/some/writable/path ./Scripts/install.sh`.
+- Writing to `/Applications/Utilities` may require an admin-capable shell. If needed, run the installer with `sudo`. You can also override the destination with `INSTALL_DIR=/some/writable/path ./Scripts/install.sh`.
 - The bundle includes an Apple Events usage string because Hive automates Ghostty through AppleScript.
-- To reload startup manually: `launchctl kickstart -k gui/$(id -u)/com.hive.Hive`
-- To remove startup: `launchctl bootout gui/$(id -u)/com.hive.Hive && rm ~/Library/LaunchAgents/com.hive.Hive.plist`
+- To launch the installed app manually: `open /Applications/Utilities/Hive.app`
+- To make sure startup stays disabled: `launchctl bootout gui/$(id -u)/com.hive.Hive 2>/dev/null || true && rm -f ~/Library/LaunchAgents/com.hive.Hive.plist`
 - To remove the installed app: `rm -rf /Applications/Utilities/Hive.app`
 
 ## Features
@@ -55,7 +54,6 @@ Notes:
 - Group pods by workspace (1-9)
 - Two launch modes: standalone (new window) or tab (new tab in existing window)
 - Rebuild All to relaunch every pod after a reboot or crash
-- Rebuild 1-2 to relaunch only workspaces 1 and 2 during restore debugging
 - Automatic backups start paused on launch and can be re-enabled manually from the popover header once the workspace state looks correct
 - The menu bar icon shows backup state: yellow with a pause badge when paused, green center dot when backups are enabled
 
@@ -105,7 +103,7 @@ Sources/Hive/
     RuntimeTelemetryService.swift  # Event ingestion (currently disabled)
   Views/
     MenuBarView.swift        # Main popover UI
-    PodCardView.swift        # Individual pod display with launch button
+    PodCardView.swift        # Individual pod display
     PodEditorView.swift      # Create/edit form
     PodLayoutView.swift      # Color-coded mini layout preview
     DirectoryField.swift     # Tab-completion directory picker

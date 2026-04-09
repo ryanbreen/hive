@@ -5,6 +5,7 @@ struct MenuBarView: View {
     @State private var searchText = ""
     @State private var isSearching = false
     @State private var collapsedWorkspaces: Set<Int> = []
+    @State private var sessionSaved = false
     @FocusState private var searchFieldFocused: Bool
 
     private var filteredGroups: [(workspace: Int, pods: [Pod])] {
@@ -279,6 +280,17 @@ struct MenuBarView: View {
     private var footer: some View {
         HStack {
             Button {
+                Task { await saveSession() }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: sessionSaved ? "checkmark" : "square.and.arrow.down")
+                    Text("Save Session")
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(state.pods.isEmpty)
+
+            Button {
                 Task { await rebuildAll() }
             } label: {
                 HStack(spacing: 4) {
@@ -309,6 +321,18 @@ struct MenuBarView: View {
         .padding(.vertical, 10)
     }
 
+    private func saveSession() async {
+        do {
+            let session = GhosttySessionBuilder.buildSession(from: state.pods)
+            _ = try GhosttySessionBuilder.writeSessionFile(session)
+            sessionSaved = true
+            try? await Task.sleep(for: .seconds(2))
+            sessionSaved = false
+        } catch {
+            state.error = "Save session failed: \(error.localizedDescription)"
+        }
+    }
+
     private func rebuildAll() async {
         await rebuild(workspaces: nil)
     }
@@ -335,7 +359,7 @@ struct MenuBarView: View {
             }
 
             let launcher = PodLauncher()
-            try await launcher.rebuildAll(pods: podsToLaunch)
+            try await launcher.rebuildAllViaSession(pods: podsToLaunch)
         } catch {
             state.error = "Rebuild failed: \(error.localizedDescription)"
         }
